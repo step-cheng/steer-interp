@@ -51,6 +51,7 @@ def load_refusal_completions(model_path, steer_flag, concept_params: dict, learn
                     {"role": "user", "content": comp_to_add['prompt']},
                     {"role": "assistant", "content": comp_to_add['response']}
                 ])
+    print(f'len contents: {len(contents)}')
 
     return contents
 
@@ -139,10 +140,11 @@ def load_steering_vector(concept: str, model_path: str, concept_params: dict, po
     Returns steering vector and layer idx. make sure steering vector is prehooked into the layer at layer_idx
     """
     if concept == "refusal":
-        if learned or vector_base_path:
-            vector, coeff, layer_idx = _load_learned_vector(concept, model_path, concept_params, layer_idx, vector_base_path)
-        else:
+        if not learned:
             vector, coeff, layer_idx = _load_refusal_dim_vector(concept, model_path, concept_params, pos, layer_idx, check_best)
+        else:
+            assert vector_base_path is not None
+            vector, coeff, layer_idx = _load_learned_vector(concept, model_path, concept_params, layer_idx, vector_base_path)
         return vector, coeff, layer_idx
 
     else:

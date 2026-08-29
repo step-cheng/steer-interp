@@ -493,6 +493,257 @@ def _pe_ig(
         None
     ), steer_submodules
 
+
+def _compute_per_head_input_grads(submodule, proj_output_grad, proj_name):
+    attn = submodule.submodule
+    d_head = attn.head_dim
+    if proj_name == 'q':
+        W = attn.q_proj.weight  # [num_heads * d_head, d_model]
+        n = attn.config.num_attention_heads
+    elif proj_name == 'k':
+        W = attn.k_proj.weight  # [num_kv_heads * d_head, d_model]
+        n = attn.config.num_key_value_heads
+    elif proj_name == 'v':
+        W = attn.v_proj.weight  # [num_kv_heads * d_head, d_model]
+        n = attn.config.num_key_value_heads
+    
+    B, S, _ = proj_output_grad.shape
+    d_model = W.shape[1]
+
+    # Reshape grad to per-head: [B, S, n, d_head]
+    grad_per_head = proj_output_grad.reshape(B,S,n, d_head)
+
+    # reshape weight to per-head [n, d_head, d_model]
+    W_per_head = W.reshape(n, d_head, d_model)
+
+    # W_i^T @ dL/dz_i for each head: [B, S, n, d_model]
+    per_head_input_grads = t.einsum('bsnh, nhd->bsnd', grad_per_head, W_per_head)
+
+    return per_head_input_grads
+
+def _pe_ig_2(
+    inputs,
+    model,
+    steer_vec,
+    layer_idx,
+    all_submodules: SubmoduleStash,
+    metric_fn,
+    src_intervention_fn,
+    dest_intervention_fn,
+    steps=10,
+    trapezoidal=True,
+    save_grads=False,
+):
+    """
+    Obtains gradients wrt inputs, whereas _pe_ig obtains gradients wrt outputs. Thus, no need for SparseAct
+    """
+    steer_submodules, resid_submod = get_steer_submodules(all_submodules, layer_idx)
+    num_heads = model.config.num_attention_heads
+    num_kv_heads = model.config.num_key_value_heads
+    unused_submodules = get_unused_submodules(all_submodules, layer_idx)
+
+    # cache src activations
+    hidden_states_src = {}
+    head_outputs_src = {}
+    with t.no_grad(), model.trace(inputs):
+        src_intervention_fn(resid_submod, steer_vec)
+        for submodule in steer_submodules:
+            if submodule.is_attn:
+                head_out = submodule.get_per_head_outputs()
+                head_out = submodule.handle_post_attn_mlp_norm(model, head_out)
+                head_outputs_src[submodule] = head_out.save()
+
+            x_out = submodule.get_out_activation()
+            hidden_states_src[submodule] = x_out.save()
+        logits_src = model.lm_head.output.save()
+
+    # cache dest activation
+    hidden_states_dest = {}
+    head_outputs_dest = {}
+    with t.no_grad(), model.trace(inputs):
+        dest_intervention_fn(resid_submod, steer_vec)
+        for submodule in steer_submodules:
+            if submodule.is_attn:
+                head_out = submodule.get_per_head_outputs()
+                head_out = submodule.handle_post_attn_mlp_norm(model, head_out)
+                head_outputs_dest[submodule] = head_out.save()
+
+            x_out = submodule.get_out_activation()
+            hidden_states_dest[submodule] = x_out.save()
+        logits_dest = model.lm_head.output.save()
+    
+    metric_src = metric_fn(logits_src, logits_dest, logits_src)
+    metric_dest = metric_fn(logits_src, logits_dest, logits_dest)
+    total_effect = metric_src - metric_dest
+
+    # obtain activation differences at the output of each submodule
+    deltas = {}
+    head_deltas = {}
+    for submodule in steer_submodules:
+        delta = hidden_states_src[submodule] - hidden_states_dest[submodule]
+        deltas[submodule] = delta.detach().cpu()
+
+        if submodule.is_attn:
+            head_delta = head_outputs_src[submodule] - head_outputs_dest[submodule]
+            head_deltas[submodule] = head_delta.detach().cpu()
+    
+    del hidden_states_dest, hidden_states_src
+    
+    in_grads = {}
+    out_grads = {}
+    head_out_grads = {}
+    qkv_in_grads = {}
+
+    if save_grads:
+        accumulated_in_grads = {submod: [] for submod in steer_submodules}
+        accumulated_out_grads = {submod: [] for submod in steer_submodules}
+        accumulated_head_out_grads = {submod: [] for submod in steer_submodules}
+        accumulated_qkv_in_grads = {submod: {'q': [], 'k': [], 'v': []} for submod in steer_submodules}
+        def add_to_dict(data_dict, submod, data, key=None):
+            if key: data_dict[submod][key].append(data.unsqueeze(0))
+            else: data_dict[submod].append(data.unsqueeze(0))
+    else:
+        accumulated_in_grads = {submod: None 
+                                for submod in steer_submodules}
+        accumulated_out_grads = {submod: None
+                                for submod in steer_submodules}
+        accumulated_head_out_grads = {submod: None
+                                    for submod in steer_submodules if submod.is_attn}
+        accumulated_qkv_in_grads = {s: {'q': None, 'k': None, 'v': None} 
+                                    for s in steer_submodules if s.is_attn}
+        def add_to_dict(data_dict, submod, data, key=None):
+            if key: 
+                if data_dict[submod][key] is None: data_dict[submod][key] = data / steps
+                else: data_dict[submod][key] += data / steps
+            else: 
+                if data_dict[submod] is None: data_dict[submod] = data / steps
+                else: data_dict[submod] += data / steps
+
+    for step in range(0,steps):
+        alpha = (step+0.5) / steps if trapezoidal else step / steps
+        input_acts = {}
+        output_acts = {}
+        head_output_acts = {}
+        qkv_proj_acts = {}
+
+        with model.trace(inputs):
+            # do not track gradients from submodules before steering.
+            for submodule in unused_submodules:
+                x_out = submodule.get_out_activation()
+                submodule.set_out_activation(x_out.detach()) # detach gradients
+            for submodule in steer_submodules:
+                x_in = submodule.get_in_activation()
+                x_in.requires_grad_().retain_grad()
+                input_acts[submodule] = x_in.save()
+
+                if submodule == resid_submod:
+                    # apply steering
+                    x_dummy = submodule.get_out_activation().clone()
+                    new_activation = x_dummy + alpha*steer_vec.to(submodule.device)
+                    new_activation.requires_grad_().retain_grad()
+                    submodule.set_out_activation(new_activation)
+                    output_acts[submodule] = new_activation.save()
+                elif submodule.is_attn:
+                    # Caputre Q/K/V projection outputs
+                    attn = submodule.submodule
+                    q_proj_out = attn.q_proj.output
+                    k_proj_out = attn.k_proj.output
+                    v_proj_out = attn.v_proj.output
+                    q_proj_out.requires_grad_().retain_grad()
+                    k_proj_out.requires_grad_().retain_grad()
+                    v_proj_out.requires_grad_().retain_grad()
+                    qkv_proj_acts[submodule] = {
+                        'q': q_proj_out.save(),
+                        'k': k_proj_out.save(),
+                        'v': v_proj_out.save(),
+                    }
+                    
+                    # Per-head outputs with gradient routing
+                    head_out = submodule.get_per_head_outputs()
+                    head_out = submodule.handle_post_attn_mlp_norm(model, head_out)
+                    head_output_acts[submodule] = head_out.save()
+                    
+                    # Also track full attention output to get out grads
+                    x_out = submodule.get_out_activation()
+                    x_out.requires_grad_().retain_grad()
+                    output_acts[submodule] = x_out.save()
+                else:
+                    x_out = submodule.get_out_activation()
+                    x_out.requires_grad_().retain_grad()
+                    output_acts[submodule] = x_out.save()
+
+            logits_mid = model.lm_head.output.save()
+        metric = metric_fn(logits_src, logits_dest, logits_mid)
+        metric.backward()
+
+        for submodule in steer_submodules:
+            grad_in = input_acts[submodule].grad.detach().cpu()
+            grad_out = output_acts[submodule].grad.detach().cpu()
+            add_to_dict(accumulated_in_grads, submodule, grad_in)
+            add_to_dict(accumulated_out_grads, submodule, grad_out)
+            
+            if submodule.is_attn:
+                for l in 'qkv':
+                    l_grad = qkv_proj_acts[submodule][l].grad
+                    per_head_in_grad = _compute_per_head_input_grads(submodule, l_grad, l).detach().cpu()
+                    add_to_dict(accumulated_qkv_in_grads, submodule, per_head_in_grad, l)
+
+                head_grad = submodule.get_head_grads(
+                    output_acts[submodule].grad
+                ).detach().cpu()
+                add_to_dict(accumulated_head_out_grads, submodule, head_grad)
+
+        model.zero_grad()
+        del metric, logits_mid, input_acts, output_acts, head_output_acts, qkv_proj_acts
+        # t.cuda.empty_cache()
+        
+    effects = {}
+    head_effects = {}
+    # populate effects, delta, and grad
+    for submodule in steer_submodules:
+        if not submodule.is_attn:
+            all_grads_in = t.cat(accumulated_in_grads[submodule], dim=0) if save_grads else accumulated_in_grads[submodule]
+            all_grads_out = t.cat(accumulated_out_grads[submodule], dim=0) if save_grads else accumulated_out_grads[submodule]
+            in_grads[submodule] = all_grads_in
+            out_grads[submodule] = all_grads_out
+            if save_grads:
+                effect = t.mean(all_grads_out, dim=0) * deltas[submodule]
+            else:
+                effect = all_grads_out * deltas[submodule]
+            effects[submodule] = effect
+
+    del accumulated_in_grads, accumulated_out_grads
+    gc.collect()
+    for submodule in steer_submodules:
+        if submodule.is_attn:
+            qkv_in_grads[submodule] = {}
+            for l in 'qkv':
+                all_l_in_grads = t.cat(accumulated_qkv_in_grads[submodule][l], dim=0) if save_grads else accumulated_qkv_in_grads[submodule][l]
+                qkv_in_grads[submodule][l] = all_l_in_grads
+            all_head_grads = t.cat(accumulated_head_out_grads[submodule], dim=0) if save_grads else accumulated_head_out_grads[submodule]
+            head_out_grads[submodule] = all_head_grads
+            if save_grads:
+                head_effect = t.mean(all_head_grads, dim=0) * head_deltas[submodule]
+            else:
+                head_effect = all_head_grads * head_deltas[submodule]
+            head_effects[submodule] = head_effect
+        
+    del accumulated_head_out_grads, accumulated_qkv_in_grads
+    gc.collect()
+
+    return EffectOut(
+        effects, 
+        deltas, 
+        in_grads, 
+        out_grads, 
+        total_effect,
+        head_effects,
+        head_deltas,
+        head_out_grads,
+        qkv_in_grads,
+        None
+    ), steer_submodules
+
 def patching_effect(
         inputs,
         model,
@@ -509,6 +760,8 @@ def patching_effect(
     method, steps, trapezoidal, save_grads = config.method, config.n_steps, config.trapezoidal, config.save_grads
     if method == 'ig':
         return _pe_ig(inputs, model, steer_vec, layer_idx, submodules, metric_fn, src_intervention_fn, dest_intervention_fn, steps, trapezoidal, save_grads)
+    if method == 'ig2':
+        return _pe_ig_2(inputs, model, steer_vec, layer_idx, submodules, metric_fn, src_intervention_fn, dest_intervention_fn, steps, trapezoidal, save_grads)
     elif method == 'exact':
         return _pe_exact(inputs, model, steer_vec, layer_idx, submodules, metric_fn, src_intervention_fn, dest_intervention_fn)
     # elif method == 'ap':

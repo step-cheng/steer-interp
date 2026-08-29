@@ -1,8 +1,8 @@
 #!/bin/bash
 
-model_path=${1:-"google/gemma-2-2b-it"}
-layer=${2:-15}
-seed=${3:-42}
+model_path=${model:-"Qwen/Qwen3-8B"}
+layer=${layer:-20}
+seed=${seed:-42}
 
 python -u learn_sv.py --model_path $model_path --exp_name "ntp_bsz6_lr1e-2_seed$seed" --intervention_layer $layer \
     --loss_type ntp \

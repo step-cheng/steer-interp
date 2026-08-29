@@ -63,14 +63,25 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("result_names", nargs="+", help="paths to patching_results.pt")
-    parser.add_argument("--model_path", required=True, help="output .pt file")
+    parser.add_argument("--model_path", required=True, help="model name")
     parser.add_argument("--save_name", required=True, help="output .pt file")
     parser.add_argument("--weighted", action='store_true', help="equally divides effect across datasets")
     args = parser.parse_args()
 
-    circuits_dir = f"circuits/{args.model_path.split('/')[-1]}"
+    circuit_dir1 = f"circuits/{args.model_path.split('/')[-1]}"
+    circuit_dir2 = f"/fs/nexus-scratch/scheng03/steer-interp-results/{circuit_dir1}"
+    if os.path.exists(os.path.join(circuit_dir1, args.result_names[0], 'patching_results.pt')):
+        circuits_dir = circuit_dir1
+    elif os.path.exists(os.path.join(circuit_dir2, args.result_names[0], 'patching_results.pt')):
+        circuits_dir = circuit_dir2
+    else:
+
+        print(f"save dirs {os.path.join(circuit_dir1, args.result_names[0], 'patching_results.pt')}, {os.path.join(circuit_dir2, args.result_names[0], 'patching_results.pt')} do not exist")
+
+    print('loading results')
     results = [t.load(os.path.join(circuits_dir, p, 'patching_results.pt'), map_location="cpu") for p in args.result_names]
 
+    print('aggregating results...')
     aggregated = aggregate_patching_results(results, args.weighted)
 
     os.makedirs(os.path.join(circuits_dir, args.save_name), exist_ok=True)

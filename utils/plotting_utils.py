@@ -223,6 +223,232 @@ def plot_module_circuit(
     
     # Render
     os.makedirs(os.path.dirname(save_path) if os.path.dirname(save_path) else ".", exist_ok=True)
+    G.render(save_path, format="png", cleanup=True)
+    print(f"Circuit visualization saved to {save_path}.png")
+    G.render(save_path, format="pdf", cleanup=True)
+    print(f"Circuit visualization saved to {save_path}.pdf")
+
+
+def plot_module_circuit_granular(
+    nodes,
+    edges: set,
+    layers,
+    head_group_ratio: int,
+    pen_thickness=3.0,
+    save_path="circuit",
+    label_vals=False,
+):
+    """Plot a circuit at module-level granularity."""
+    import torch
+
+    # Convert nodes to scalar values (sum across all dimensions)
+    nodes_with_edges = set()
+    for upstream_name, downstream_name, edge_score in edges:
+        nodes_with_edges.add(upstream_name)
+        nodes_with_edges.add(downstream_name)
+
+    node_values = {}
+    for name, tensor in nodes.items():
+        if name not in nodes_with_edges:
+            continue
+        if isinstance(tensor, torch.Tensor):
+            node_values[name] = tensor.sum().item()
+        else:
+            node_values[name] = float(tensor)
+
+    def value_to_color(value):
+        if not node_values:
+            return "#FFFFFF", "#000000"
+
+        scale = max(
+            abs(min(node_values.values())),
+            abs(max(node_values.values()))
+        )
+        if scale == 0:
+            return "#FFFFFF", "#000000"
+
+        normalized = value / scale
+
+        if normalized < 0:
+            red = 255
+            green = blue = int((1 + normalized) * 255)
+        elif normalized > 0:
+            blue = 255
+            red = green = int((1 - normalized) * 255)
+        else:
+            red = green = blue = 255
+
+        brightness = red * 0.299 + green * 0.587 + blue * 0.114
+        text_color = "#000000" if brightness > 170 else "#FFFFFF"
+        fill_color = f"#{red:02X}{green:02X}{blue:02X}"
+
+        return fill_color, text_color
+
+    # Identify QKV endpoints that have edges (granular: attn_L_hN_q/k/v, 4 parts)
+    qkv_nodes_to_add = {}
+    qkv_to_heads = defaultdict(set)
+
+    for upstream_name, downstream_name, edge_val in edges:
+        parts = downstream_name.split('_')
+        if parts[0] == 'attn' and len(parts) == 4 and parts[3] in ['q', 'k', 'v']:
+            if downstream_name not in qkv_nodes_to_add:
+                qkv_nodes_to_add[downstream_name] = 0
+
+    # Map each granular QKV node to the head(s) it feeds
+    for qkv_name in qkv_nodes_to_add:
+        parts = qkv_name.split('_')
+        layer = parts[1]
+        group_number = int(parts[2][1:])  # e.g. h2 -> 2
+        qkv_type = parts[3]
+        if qkv_type == 'q':
+            qkv_to_heads[qkv_name].add(f"attn_{layer}_h{group_number}")
+        else:  # k or v: one KV group feeds head_group_ratio query heads
+            for i in range(head_group_ratio):
+                h = head_group_ratio * group_number + i
+                qkv_to_heads[qkv_name].add(f"attn_{layer}_h{h}")
+    
+    # Create graph
+    G = Digraph(name="Module Circuit")
+    G.graph_attr.update(
+        rankdir="BT",
+        ranksep="0.5",
+        nodesep="0.3",
+        newrank="true",  # Enable newrank for better rank handling
+    )
+    G.node_attr.update(shape="box", style="rounded,filled")
+    
+    # Helper to parse layer from name
+    def get_layer(name):
+        if name == "embed":
+            return -1
+        elif name.startswith("lm_head"):
+            return layers + 1
+        elif name.startswith("resid_"):
+            return int(name.split("_")[1]) + 0.5  # Put resid between layers
+        elif name.startswith("attn_") and '_h' in name:
+            return int(name.split("_")[1])
+        elif name.startswith("mlp_"):
+            return int(name.split("_")[1])
+        else:
+            raise ValueError(f'unknown component: {name}')
+    
+    def get_qkv_layer(name):
+        # QKV nodes go slightly below their layer's attention heads
+        parts = name.split('_')
+        return int(parts[1]) - 0.1
+    
+    # Group nodes by layer
+    nodes_by_layer = defaultdict(list)
+    qkv_by_layer = defaultdict(list)
+    included_nodes = set()
+    
+    # Add regular nodes
+    for name, value in node_values.items():        
+        layer = get_layer(name)
+        fill_color, text_color = value_to_color(value)
+        label = f"{name}\\n{value:.4f}" if label_vals else f"{name}"
+        
+        G.node(
+            name,
+            label=label,
+            fillcolor=fill_color,
+            fontcolor=text_color,
+        )
+        
+        nodes_by_layer[layer].append(name)
+        included_nodes.add(name)
+    
+    # Add QKV nodes
+    for qkv_name, _ in qkv_nodes_to_add.items():
+        layer = get_qkv_layer(qkv_name)
+        
+        G.node(
+            qkv_name,
+            label=f"{qkv_name}",
+            fillcolor="#E0E0E0",
+            fontcolor="#000000",
+            shape="ellipse",
+        )
+        
+        qkv_by_layer[layer].append(qkv_name)
+        included_nodes.add(qkv_name)
+    
+    # Combine all layers and sort
+    all_layers = sorted(set(nodes_by_layer.keys()) | set(qkv_by_layer.keys()))
+    
+    # Create subgraphs with rank='same' for each layer
+    for layer in all_layers:
+        with G.subgraph() as s:
+            s.attr(rank='same')
+            for node in nodes_by_layer.get(layer, []):
+                s.node(node)
+            for node in qkv_by_layer.get(layer, []):
+                s.node(node)
+    
+    # Add invisible edges between consecutive layers to enforce ordering
+    # Pick one representative node from each layer
+    layer_representatives = {}
+    for layer in all_layers:
+        if nodes_by_layer.get(layer):
+            layer_representatives[layer] = nodes_by_layer[layer][0]
+        elif qkv_by_layer.get(layer):
+            layer_representatives[layer] = qkv_by_layer[layer][0]
+    
+    sorted_layers = sorted(layer_representatives.keys())
+    for i in range(len(sorted_layers) - 1):
+        lower_layer = sorted_layers[i]
+        upper_layer = sorted_layers[i + 1]
+        lower_node = layer_representatives[lower_layer]
+        upper_node = layer_representatives[upper_layer]
+        
+        # Add invisible edge to enforce ordering
+        G.edge(
+            lower_node,
+            upper_node,
+            style="invis",
+            weight="10",  # High weight to prioritize this constraint
+        )
+    
+    # Collect edge magnitudes for normalization
+    edge_magnitudes = [abs(e[2]) for e in edges]
+    max_edge = max(edge_magnitudes) if edge_magnitudes else 1.0
+    min_edge = min(edge_magnitudes) if edge_magnitudes else 0.0
+    
+    # Add visible edges
+    for upstream_name, downstream_name, edge_score in edges:                
+        if max_edge > min_edge:
+            normalized = (abs(edge_score) - min_edge) / (max_edge - min_edge)
+            thickness = 0.5 + normalized * pen_thickness
+        else:
+            thickness = pen_thickness / 2
+        
+        color = "red" if edge_score < 0 else "blue"
+        G.edge(
+            upstream_name,
+            downstream_name,
+            penwidth=f"{thickness:.2f}",
+            color=color,
+            label=f"{edge_score:.3f}" if label_vals else None,
+            fontsize="10",
+        )
+    
+    # Add grey edges from QKV nodes to their corresponding attention heads
+    for qkv_name, head_names in qkv_to_heads.items():
+        if qkv_name not in included_nodes:
+            continue
+        for head_name in head_names:
+            if head_name in included_nodes:
+                G.edge(
+                    qkv_name,
+                    head_name,
+                    color="gray",
+                    style="dashed",
+                    penwidth="1.0",
+                    arrowsize="0.5",
+                )
+    
+    # Render
+    os.makedirs(os.path.dirname(save_path) if os.path.dirname(save_path) else ".", exist_ok=True)
     G.render(save_path, format="pdf", cleanup=True)
     print(f"Circuit visualization saved to {save_path}.pdf")
 

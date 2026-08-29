@@ -205,11 +205,55 @@ class Submodule:
 SubmoduleStash = namedtuple("SubmoduleStash", ["embed", "attns", "mlps", "resids", "lm_head"])
 
 
+def _load_qwen_submodules(
+    model,
+    separate_by_type: bool = False,
+):
+    attns = []
+    mlps = []
+    resids = []
+    embed = Submodule(
+        name="embed",
+        submodule=model.model.embed_tokens,
+    )
+    """This does not have a post ln before adding to residual stream"""
+    for i, layer in tqdm(
+        enumerate(model.model.layers),
+        total=len(model.model.layers),
+        desc="Loading Model Submodules",
+    ):
+        attns.append(
+            attn := Submodule(
+                name=f"attn_{i}", submodule=layer.self_attn, pre_ln=layer.input_layernorm, layer_idx=i
+            )
+        )
+        mlps.append(
+            mlp := Submodule(
+                name=f"mlp_{i}", submodule=layer.mlp, pre_ln=layer.post_attention_layernorm, layer_idx=i
+            )
+        )
+        resids.append(
+            resid := Submodule(name=f"resid_{i}", submodule=layer
+            )
+        )
+    
+    lm_head = Submodule(name="lm_head", submodule=model.lm_head, pre_ln=model.model.norm)
+
+    if separate_by_type:
+        return SubmoduleStash(embed, attns, mlps, resids, lm_head)
+    else:
+        submodules = [embed] + [
+            x
+            for layer_dictionaries in zip(attns, mlps, resids)
+            for x in layer_dictionaries
+        ] + [lm_head]
+        return submodules
+
 def _load_gemma_submodules(
     model,
     separate_by_type: bool = False,
 ):
-
+    """This has a pre and post ln before adding to residual stream"""
     attns = []
     mlps = []
     resids = []
@@ -305,6 +349,10 @@ def load_submodules(
         return _load_gemma_submodules(model, separate_by_type=separate_by_type)
     elif model_name.startswith("meta-llama"):
         return _load_llama_submodules(model, separate_by_type=separate_by_type)
+    elif model_name.startswith("Qwen"):
+        return _load_qwen_submodules(model, separate_by_type=separate_by_type)
+    else:
+        raise ValueError(f'invalid model: {model}')
     
 def format_neg_circuit_components(
     neg_nodes: list[tuple[str, int]],

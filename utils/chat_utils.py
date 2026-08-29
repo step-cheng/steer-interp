@@ -9,6 +9,15 @@ GEMMA_CHAT_TEMPLATE = """<bos><start_of_turn>user
 <start_of_turn>model
 {response}"""
 
+QWEN3_CHAT_TEMPLATE = """<|im_start|>user
+{instruction}<|im_end|>
+<|im_start|>assistant
+<think>
+
+</think>
+
+{response}"""
+
 
 def gemma_chat_template_fn(contents):
     prompt = contents[0]['content']
@@ -19,11 +28,17 @@ def llama_chat_template_fn(contents):
     prompt = contents[0]['content']
     response = contents[1]['content'] if len(contents) >= 2 else ''
     return LLAMA3_CHAT_TEMPLATE.format(instruction=prompt, response=response)
+
+def qwen3_chat_template_fn(contents):
+    prompt = contents[0]['content']
+    response = contents[1]['content'] if len(contents) >= 2 else ''
+    return QWEN3_CHAT_TEMPLATE.format(instruction=prompt, response=response)
     
 model_chat_template_fn_dict = {
     'google/gemma-2-2b-it': gemma_chat_template_fn,
     'google/gemma-2-9b-it': gemma_chat_template_fn,
     'meta-llama/Llama-3.2-3B-Instruct': llama_chat_template_fn,
+    'Qwen/Qwen3-8B': qwen3_chat_template_fn
 }
 
 def get_chat_template_fn(model_path):
