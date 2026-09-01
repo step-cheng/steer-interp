@@ -10,7 +10,7 @@ import json
 from tqdm import tqdm
 import os
 import random
-from iic_node import IICNode
+from svv_node import IICNode
 from refusal_direction.dataset.load_dataset import load_dataset, load_dataset_split
 from utils.gen_utils import load_model_and_tokenizer
 

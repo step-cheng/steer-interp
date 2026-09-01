@@ -7,7 +7,7 @@ from collections import defaultdict
 from config_act_patch import dim_layer_pos_dict
 import json
 
-class IICNode:
+class SVVNode:
     """
     This only works from the steer resid to the immediate value, and no other way.
     """
@@ -221,7 +221,7 @@ def inspect_iic(model, tokenizer, steer_vec, steer_layer_idx, offset: int=0, off
     print()
 
     if offset > 0:
-        iic_attn = IICNode(model, steer_layer_idx+offset-1)
+        iic_attn = SVVNode(model, steer_layer_idx+offset-1)
         steer_vec = steer_vec.to(iic_attn.device)
         norm_steer_vec = iic_attn.pre_ln_norm_v(steer_vec)
         out_vector = iic_attn.get_out_vector(norm_steer_vec)
@@ -231,7 +231,7 @@ def inspect_iic(model, tokenizer, steer_vec, steer_layer_idx, offset: int=0, off
     for layer_idx in range(steer_layer_idx+offset, num_hidden_layers):
         print(f'layer idx {layer_idx}')
 
-        iic_attn = IICNode(model, layer_idx)
+        iic_attn = SVVNode(model, layer_idx)
 
         steer_vec = steer_vec.to(iic_attn.device)
         norm_steer_vec = iic_attn.pre_ln_norm_v(steer_vec)
