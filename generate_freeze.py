@@ -11,15 +11,15 @@ from tqdm import tqdm
 import os
 import random
 from iic_node import IICNode
-from dataset.load_dataset import load_dataset, load_dataset_split
+from refusal_direction.dataset.load_dataset import load_dataset, load_dataset_split
 from utils.gen_utils import load_model_and_tokenizer
 
 TEST_DATASETS = ['jailbreakbench', 'alpaca']
 
-def load_test_data(dataset_name, n_examples=100):
+def load_test_data(dataset_name, completions_path=None, n_examples=100):
     random.seed(42)
     if dataset_name == 'alpaca':
-        with open('pipeline/runs/gemma-2-2b-it/completions_layer15_pos-1/harmless_actadd_completions.json', 'r') as f:
+        with open(completions_path, 'r') as f:
             completions = json.load(f)
         data = [{
             'category': s['category'], 'instruction': s['prompt']
@@ -292,6 +292,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_path', type=str)
     parser.add_argument('--dataset', type=str, choices=TEST_DATASETS)
+    parser.add_argument('--completions', type=str, default=None)
     parser.add_argument('--start_idx', type=int, default=0)
     parser.add_argument('--freeze_type', type=str, choices=['attn_weights', 'attn_vals', 'mlps', 'iic', 'none', 'mlp_direct', 'test'])
     parser.add_argument('--batch_size', type=int, default=1)
@@ -300,7 +301,7 @@ if __name__ == '__main__':
 
     # load data
     dataset_name = args.dataset
-    dataset = load_test_data(dataset_name)
+    dataset = load_test_data(dataset_name, args.completions)
     n_examples = len(dataset)
 
     # load model

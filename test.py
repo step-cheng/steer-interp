@@ -1,13 +1,33 @@
 import torch as t
+import os
 
-vector1 = t.load('vectors/Qwen3-8B/dim_logit_dropout=516.pt', map_location='cpu', weights_only=False)
-vector2 = t.load('vectors/Qwen3-8B/dim_logit_dropout=516.pt', map_location='cpu', weights_only=False)
-
-print(vector1.keys())
-print(vector1['layer'])
-print(vector1['direction'])
-print(vector2['direction'])
-print(t.norm(vector1['direction'] - vector2['direction']))
+paths = [
+    # 'data/kl_divs/refusal/Qwen3-8B/kl_analysis_harmfulq_base_layer20_pos-8.parquet',
+    # 'data/kl_divs/refusal/Qwen3-8B/kl_analysis_harmfulq_steered_layer20_pos-8.parquet',
+    # 'data/kl_divs/refusal/Qwen3-8B/kl_analysis_harmlessq_base_layer20_pos-8.parquet',
+    # 'data/kl_divs/refusal/Qwen3-8B/kl_analysis_harmlessq_steered_layer20_pos-8.parquet',
+    # 'data/kl_divs/refusal/gemma-2-2b-it/kl_analysis_harmfulq_base_layer15_pos-1.parquet',
+    # 'data/kl_divs/refusal/gemma-2-2b-it/kl_analysis_harmfulq_steered_layer15_pos-1.parquet',
+    # 'data/kl_divs/refusal/gemma-2-2b-it/kl_analysis_harmlessq_base_layer15_pos-1.parquet',
+    # 'data/kl_divs/refusal/gemma-2-2b-it/kl_analysis_harmlessq_steered_layer15_pos-1.parquet',
+    '/fs/nexus-scratch/scheng03/steer-interp-results/circuits/gemma-2-2b-it/ig2_dim_logit_steer_harmless',
+    '/fs/nexus-scratch/scheng03/steer-interp-results/circuits/gemma-2-2b-it/ig2_dim_logit_steer_harmful',
+    '/fs/nexus-scratch/scheng03/steer-interp-results/circuits/gemma-2-2b-it/ig2_dim_logit_base_harmless',
+    '/fs/nexus-scratch/scheng03/steer-interp-results/circuits/gemma-2-2b-it/ig2_dim_logit_base_harmful',
+    '/fs/nexus-scratch/scheng03/steer-interp-results/circuits/gemma-2-2b-it/ig2_ntp_logit_steer_harmless',
+    '/fs/nexus-scratch/scheng03/steer-interp-results/circuits/gemma-2-2b-it/ig2_ntp_logit_steer_harmful',
+    '/fs/nexus-scratch/scheng03/steer-interp-results/circuits/gemma-2-2b-it/ig2_ntp_logit_base_harmless',
+    '/fs/nexus-scratch/scheng03/steer-interp-results/circuits/gemma-2-2b-it/ig2_ntp_logit_base_harmful',
+    '/fs/nexus-scratch/scheng03/steer-interp-results/circuits/gemma-2-2b-it/ig2_reps_logit_steer_harmless',
+    '/fs/nexus-scratch/scheng03/steer-interp-results/circuits/gemma-2-2b-it/ig2_reps_logit_steer_harmful',
+    '/fs/nexus-scratch/scheng03/steer-interp-results/circuits/gemma-2-2b-it/ig2_reps_logit_base_harmless',
+    '/fs/nexus-scratch/scheng03/steer-interp-results/circuits/gemma-2-2b-it/ig2_reps_logit_base_harmful',
+]
+for p in paths:
+    print(p)
+    data = t.load(os.path.join(p, 'patching_results.pt'), map_location='cpu')
+    print(data['num_positions'])
+    print('====')
 
 exit()
 

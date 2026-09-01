@@ -16,9 +16,9 @@
 source ~/.bashrc
 
 conda activate refusal
-cd ~/steer-interp/refusal_direction
+cd ~/steer-interp
 
-python -m pipeline.run_pipeline --model_path google/gemma-2b-it
-# python -m pipeline.run_pipeline --model_path google/gemma-2-2b-it
-# python -m pipeline.run_pipeline --model_path google/gemma-2-9b-it
-# python -m pipeline.run_pipeline --model_path meta-llama/Llama-3.1-8B-Instruct
+python -m refusal_direction.pipeline.run_pipeline --model_path google/gemma-2b-it
+# python -m refusal_direction.pipeline.run_pipeline --model_path google/gemma-2-2b-it
+# python -m refusal_direction.pipeline.run_pipeline --model_path google/gemma-2-9b-it
+# python -m refusal_direction.pipeline.run_pipeline --model_path meta-llama/Llama-3.1-8B-Instruct

@@ -16,7 +16,7 @@ fi
 
 for exp_name in "${exp_names[@]}"; do
     for n in "${n_list[@]}"; do
-        # python evaluate_circuit.py --exp_name $exp_name --n $n --model_path $model --method $method --granular
+        python evaluate_circuit.py --exp_name $exp_name --n $n --model_path $model --method $method --granular
         python faithfulness_granular.py --exp_name $exp_name --model_path $model --n $n \
             --learn_type $learn_type --learn_path $learn_path --prefix_dir $prefix_dir --method $method $invert_flag
         python faithfulness_granular.py --exp_name $exp_name --model_path $model --n $n --harm_flag \

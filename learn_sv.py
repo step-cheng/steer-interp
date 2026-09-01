@@ -16,7 +16,7 @@ from utils.data_utils import load_steering_vector
 import json
 from dataclasses import dataclass, asdict
 import argparse
-from pipeline.submodules.select_direction import refusal_score
+from refusal_direction.pipeline.submodules.select_direction import refusal_score
 
 VECTOR_DIR = "trained_vectors/{model_name}"
 REFUSAL_TOKS = {

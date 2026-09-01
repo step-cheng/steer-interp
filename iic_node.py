@@ -117,7 +117,17 @@ def plot(iic_vectors, steer_vec, heads_to_plot, plot_flag=False, save_path=None,
         '❌': '[x]',
         '多': '[many]',
         '对不起': '[sorry]',
-        ' 👎': '[thumbs_down]'
+        ' 👎': '[thumbs_down]',
+        '禁止': 'prohibit',
+        '关停': '[shut down]',
+        '不应该': '[should not]',
+        '根本不': '[not at all]',
+        '严禁': '[strictly prohibit]',
+        '违背': '[violate]',
+        '但这': '[but this]',
+        '这不是': '[this is not]',
+        '但它': '[but it]',
+        '非法': '[illegal]',
     }
 
     for k, v in heads_to_plot.items():
@@ -131,6 +141,7 @@ def plot(iic_vectors, steer_vec, heads_to_plot, plot_flag=False, save_path=None,
         else:
             layer = int(k.split('.')[0])
             head = int(k.split('.')[1])
+            print(iic_vectors.keys(), layer)
             if head < 0:
                 vector = iic_vectors[layer][abs(head)] * -1
             else:
@@ -358,7 +369,6 @@ if __name__ == '__main__':
         look_at_negatives=look_at_negatives
     )
 
-    exit()
 
     gemma2b_dim_heads_to_plot = {
         "15.2": [0,7,16],
@@ -424,20 +434,20 @@ if __name__ == '__main__':
     }
 
     q8_dim_heads_to_plot = {
-        "20.-9": [1, 2, 4],
-        "20.10": [0,4,5],
-        "22.-6": [0,1,13],
-        "22.4": [0,1,2],
-        "23.3": [0,1,2],
-        "35.2": [0,1,2],
-        "Sum": [0,4,5],
-        "sv": [0,2,3]
+        "20.-9": [0, 2, 6],
+        "20.10": [0,2,13],
+        "22.4": [0,2,3],
+        "22.-6": [0,2,3],
+        "23.3": [0,2,5],
+        "35.2": [0,4,7],
+        "Sum": [0,1,3],
+        "sv": [0,3,4]
     }
     
     model_name = {
         'google/gemma-2-2b-it': 'g2',
         'meta-llama/Llama-3.2-3B-Instruct': 'l3',
-        'Qwen/Qwen3-8B': 'l3',
+        'Qwen/Qwen3-8B': 'q8',
     }[model_path]
 
     save_flag = True
@@ -459,6 +469,6 @@ if __name__ == '__main__':
 
     plot(iic_vectors, steer_vec, heads_to_plot, 
          save_flag, save_path=f'svv_heatmap_{model_name}_{args.learn_type}_logit.png')
-    plot(iic_vectors, steer_vec, heads_to_plot, 
-         save_flag, save_path=f'svv_heatmap_{model_name}_{args.learn_type}_sim.png', m='sim')
+    # plot(iic_vectors, steer_vec, heads_to_plot, 
+    #      save_flag, save_path=f'svv_heatmap_{model_name}_{args.learn_type}_sim.png', m='sim')
 

@@ -15,7 +15,7 @@ def load_refusal_completions(model_path, steer_flag, concept_params: dict, learn
         suffix = f"_{vector_base_path}"
     else:
         suffix = f"_layer{layer}_pos{pos}"
-    dir_path = f'pipeline/runs/{model_name}/completions{suffix}'
+    dir_path = f'refusal_direction/pipeline/runs/{model_name}/completions{suffix}'
     print(f'loading data from {dir_path}')
     
     dataset_name = "jailbreakbench" if harm_flag else "harmless"
@@ -89,7 +89,7 @@ def _load_refusal_dim_vector(concept: str, model_path: str, concept_params: dict
     coeff = -1 if harm_flag else 1
 
     vector = t.load(
-        f"pipeline/runs/{model_path.split('/')[-1]}/direction_layer{layer_idx}_pos{pos}.pt",
+        f"refusal_direction/pipeline/runs/{model_path.split('/')[-1]}/direction_layer{layer_idx}_pos{pos}.pt",
         map_location="cpu"
     )
 

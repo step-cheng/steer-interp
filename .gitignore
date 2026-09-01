@@ -1,0 +1,44 @@
+# Byte-compiled / cached Python
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+
+# Packaging / installs
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Secrets and local config
+.env
+.env.*
+!.env.example
+
+# Model artifacts and generated data
+*.pt
+*.pth
+*.safetensors
+*.ckpt
+*.npy
+*.npz
+*.parquet
+*.jsonl
+
+# Editor / OS cruft
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs and job output
+*.log
+*.out
+!refusal_direction/model_runs.out
+slurm-*.out
+zslurm/

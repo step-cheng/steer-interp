@@ -4,13 +4,12 @@ import json
 import os
 import argparse
 from tqdm import tqdm
-from pipeline.config import Config
-from pipeline.run_pipeline import load_and_sample_datasets
-from dataset.load_dataset import load_dataset_split
-from pipeline.submodules.select_direction import get_refusal_scores
+from refusal_direction.pipeline.config import Config
+from refusal_direction.pipeline.run_pipeline import load_and_sample_datasets
+from refusal_direction.pipeline.submodules.select_direction import get_refusal_scores
+from refusal_direction.dataset.load_dataset import load_dataset_split
 
 from transformers import AutoModelForCausalLM, AutoTokenizer, GenerationConfig
-from datasets import load_dataset
 
 from config_act_patch import dim_layer_map, dim_layer_pos_dict
 from mat_hooks import get_activation_addition_input_pre_hook
@@ -199,6 +198,7 @@ def run_pipeline(model_path, max_tokens, n_total, overwrite=False):
     cfg = Config(model_alias=model_alias, model_path=model_path)
     harmful_train, harmless_train, harmful_val, harmless_val = load_data(cfg, n_total)
     print(f'Training with {len(harmful_train)} harmful samples, {len(harmless_train)} harmless samples')
+    input('loaded data correctly')
 
     model, tokenizer = load_model(model_path)
     generation_config = GenerationConfig(
