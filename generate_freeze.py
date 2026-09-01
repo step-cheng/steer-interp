@@ -10,7 +10,7 @@ import json
 from tqdm import tqdm
 import os
 import random
-from svv_node import IICNode
+from svv_node import SVVNode
 from refusal_direction.dataset.load_dataset import load_dataset, load_dataset_split
 from utils.gen_utils import load_model_and_tokenizer
 
@@ -143,7 +143,7 @@ def generate_no_iic(model, prompt_inputs, submodules, steer_fn, steer_layer_idx,
         with tracer.iter[:]:
             steer_fn()
             for attn in attn_submodules:
-                iic_node = IICNode(model, attn.layer_idx)
+                iic_node = SVVNode(model, attn.layer_idx)
                 steer_vec = steer_vec.to(attn.device)
                 
                 scales = iic_node.get_pre_rms_norm_stat(attn.pre_ln.input.detach()) # b s 1
