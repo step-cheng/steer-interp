@@ -1,6 +1,6 @@
 # What Drives Representation Steering? A Mechanistic Case Study on Steering Refusal
 
-This repository accompanies the paper "What Drives Representations Steering? A Mechanistic Case Study on Steering Refusal". For reproducibility, we provide code to reproduce the main results, as well as data from the original results.
+This repository accompanies the paper "What Drives Representations Steering? A Mechanistic Case Study on Steering Refusal", accepted in Proceedings of EMNLP 2026. For reproducibility, we provide code to reproduce the main results, as well as data from the original results.
 
 Paper: https://arxiv.org/abs/2604.08524
 
