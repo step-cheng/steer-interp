@@ -108,7 +108,6 @@ def get_topk(out):
     return inds, vals
 
 def plot(iic_vectors, steer_vec, heads_to_plot, plot_flag=False, save_path=None, m='logit'):
-    print('PLOTTING')
     
     to_plot = {}
     
@@ -141,7 +140,6 @@ def plot(iic_vectors, steer_vec, heads_to_plot, plot_flag=False, save_path=None,
         else:
             layer = int(k.split('.')[0])
             head = int(k.split('.')[1])
-            print(iic_vectors.keys(), layer)
             if head < 0:
                 vector = iic_vectors[layer][abs(head)] * -1
             else:
@@ -450,7 +448,7 @@ if __name__ == '__main__':
         'Qwen/Qwen3-8B': 'q8',
     }[model_path]
 
-    save_flag = True
+    save_flag = False
 
     if model_name == 'g2' and args.learn_type == 'dim':
         heads_to_plot = gemma2b_dim_heads_to_plot
@@ -467,8 +465,9 @@ if __name__ == '__main__':
     if model_name == 'q8' and args.learn_type == 'dim':
         heads_to_plot = q8_dim_heads_to_plot
 
+    m = 'logit'
     plot(iic_vectors, steer_vec, heads_to_plot, 
-         save_flag, save_path=f'svv_heatmap_{model_name}_{args.learn_type}_logit.png')
+         save_flag, save_path=f'svv_heatmap_{model_name}_{args.learn_type}_{m}.png', m=m)
     # plot(iic_vectors, steer_vec, heads_to_plot, 
     #      save_flag, save_path=f'svv_heatmap_{model_name}_{args.learn_type}_sim.png', m='sim')
 

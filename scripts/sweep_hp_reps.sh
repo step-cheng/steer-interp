@@ -8,44 +8,44 @@ python -u learn_sv.py --model_path $model_path --exp_name "reps_bsz6_lr1e-2_ss2e
     --loss_type reps \
     --batch_size 6 \
     --mini_batch_size 1 \
-    --lr 0.01 --seed $seed
+    --lr 0.01 --seed $seed --pbar
 python -u learn_sv.py --model_path $model_path --exp_name "reps_bsz6_lr4e-2_ss2e-2_seed$seed" --intervention_layer $layer \
     --loss_type reps \
     --batch_size 6 \
     --mini_batch_size 1 \
-    --lr 0.04 --seed $seed
+    --lr 0.04 --seed $seed --pbar
 python -u learn_sv.py --model_path $model_path --exp_name "reps_bsz12_lr1e-2_ss2e-2_seed$seed" --intervention_layer $layer \
     --loss_type reps \
     --batch_size 12 \
     --mini_batch_size 1 \
-    --lr 0.01 --seed $seed
+    --lr 0.01 --seed $seed --pbar
 python -u learn_sv.py --model_path $model_path --exp_name "reps_bsz12_lr4e-2_ss2e-2_seed$seed" --intervention_layer $layer \
     --loss_type reps \
     --batch_size 12 \
     --mini_batch_size 1 \
-    --lr 0.04 --seed $seed
+    --lr 0.04 --seed $seed --pbar
 
 python -u learn_sv.py --model_path $model_path --exp_name "reps_bsz6_lr1e-2_ss1e-5_seed$seed" --intervention_layer $layer \
     --loss_type reps \
     --batch_size 6 \
     --lr 0.01 \
     --mini_batch_size 1 \
-    --simpo_scaler 1e-5 --seed $seed
+    --simpo_scaler 1e-5 --seed $seed --pbar
 python -u learn_sv.py --model_path $model_path --exp_name "reps_bsz6_lr4e-2_ss1e-5_seed$seed" --intervention_layer $layer \
     --loss_type reps \
     --batch_size 6 \
     --lr 0.04 \
     --mini_batch_size 1 \
-    --simpo_scaler 1e-5 --seed $seed
+    --simpo_scaler 1e-5 --seed $seed --pbar
 python -u learn_sv.py --model_path $model_path --exp_name "reps_bsz12_lr1e-2_ss1e-5_seed$seed" --intervention_layer $layer \
     --loss_type reps \
     --batch_size 12 \
     --mini_batch_size 1 \
     --lr 0.01 \
-    --simpo_scaler 1e-5 --seed $seed
+    --simpo_scaler 1e-5 --seed $seed --pbar
 python -u learn_sv.py --model_path $model_path --exp_name "reps_bsz12_lr4e-2_ss1e-5_seed$seed" --intervention_layer $layer \
     --loss_type reps \
     --batch_size 12 \
     --lr 0.04 \
     --mini_batch_size 1 \
-    --simpo_scaler 1e-5 --seed $seed
+    --simpo_scaler 1e-5 --seed $seed --pbar

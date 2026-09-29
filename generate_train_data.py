@@ -198,7 +198,6 @@ def run_pipeline(model_path, max_tokens, n_total, overwrite=False):
     cfg = Config(model_alias=model_alias, model_path=model_path)
     harmful_train, harmless_train, harmful_val, harmless_val = load_data(cfg, n_total)
     print(f'Training with {len(harmful_train)} harmful samples, {len(harmless_train)} harmless samples')
-    input('loaded data correctly')
 
     model, tokenizer = load_model(model_path)
     generation_config = GenerationConfig(

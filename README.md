@@ -42,7 +42,10 @@ model=meta-llama/Llama-3.2-3B-Instruct bash scripts/faithfulness.sh
 The paper also includes results for steering vectors learned through next token prediction and peference optimization, as well as sparse steering vectors. Apart from the method in which these vectors are obtained, the steps for attribution patching and evaluating circuit faithfulness the same. 
 To obtain sparse steering vectors.
 ```
-python obtain_sparse_steer_vec.py --model_path meta-llama/Llama-3.2-3B-Instruct --save --exp_name <exp_name>
+python obtain_sparse_steer_vec.py \
+    --model_path meta-llama/Llama-3.2-3B-Instruct \
+    --exp_name <exp_name>
+    --save \
 ```
 
 Learn steering vectors via next token prediction (ntp) and preference optimization (reps):

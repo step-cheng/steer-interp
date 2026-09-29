@@ -956,6 +956,7 @@ if __name__ == '__main__':
         print("loading trained steering vector")
         trainer.load_vector()
     else:
+        print('training')
         learned_vector = trainer.train()
 
     

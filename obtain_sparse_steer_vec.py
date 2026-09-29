@@ -265,9 +265,9 @@ def get_edge_list(edges: dict):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--exp_name', type=str)
+    parser.add_argument('--exp_name', type=str, default='ig2_dim_logit')
     parser.add_argument('--model_path', type=str, default='google/gemma-2-2b-it')
-    parser.add_argument('--learn_type', type=str, choices=['dim', 'ntp', 'reps', 'ortho'])
+    parser.add_argument('--learn_type', type=str, choices=['dim', 'ntp', 'reps', 'ortho'], default='dim')
     parser.add_argument('--learn_path', type=str, default=None)
     parser.add_argument('--save', action="store_true", default=False)
     args = parser.parse_args()
