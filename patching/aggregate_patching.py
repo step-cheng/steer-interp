@@ -69,7 +69,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     circuit_dir1 = f"circuits/{args.model_path.split('/')[-1]}"
-    circuit_dir2 = f"/fs/nexus-scratch/scheng03/steer-interp-results/{circuit_dir1}"
+    circuit_dir2 = f"steer-interp-results/{circuit_dir1}"
     if os.path.exists(os.path.join(circuit_dir1, args.result_names[0], 'patching_results.pt')):
         circuits_dir = circuit_dir1
     elif os.path.exists(os.path.join(circuit_dir2, args.result_names[0], 'patching_results.pt')):

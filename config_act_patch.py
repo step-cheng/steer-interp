@@ -54,7 +54,7 @@ class Config:
             else:
                 raise ValueError(f"misalignment in config attribute {field.name} and parser params")
 
-        self.save_dir = f"/fs/nexus-scratch/scheng03/steer-interp-results/circuits/{self.model_path.split('/')[-1]}/{self.exp_name}"
+        self.save_dir = f"steer-interp-results/circuits/{self.model_path.split('/')[-1]}/{self.exp_name}"
         self.layer, self.pos = dim_layer_pos_dict[self.model_path][self.layer]
 
         return self

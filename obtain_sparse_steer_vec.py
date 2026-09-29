@@ -288,7 +288,7 @@ if __name__ == "__main__":
     
 
     circuit_dir1 = f"circuits/{args.model_path.split('/')[-1]}/{exp_name}"
-    circuit_dir2 = f"/fs/nexus-scratch/scheng03/steer-interp-results/{circuit_dir1}"
+    circuit_dir2 = f"steer-interp-results/{circuit_dir1}"
     if os.path.exists(f"{circuit_dir1}"):
         circuit_dir = circuit_dir1
     elif os.path.exists(f"{circuit_dir2}"):

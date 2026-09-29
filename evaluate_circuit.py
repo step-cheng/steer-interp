@@ -397,7 +397,7 @@ if __name__ == "__main__":
     }[args.method]
 
     save_dir1 = f"circuits/{args.model_path.split('/')[-1]}/{exp_name}"
-    save_dir2 = f"/fs/nexus-scratch/scheng03/steer-interp-results/{save_dir1}"
+    save_dir2 = f"steer-interp-results/{save_dir1}"
     if os.path.exists(f"{save_dir1}"):
         save_dir = save_dir1
     elif os.path.exists(f"{save_dir2}"):
